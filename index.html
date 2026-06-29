@@ -11,6 +11,12 @@
   h1 { font-size: 1.4rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
   .subtitle { font-size: 0.82rem; color: #888; margin-bottom: 24px; }
 
+  .sync-bar { display:flex; align-items:center; gap:8px; background:#1a1a26; border:1px solid #2a2a3e; border-radius:10px; padding:8px 14px; margin-bottom:20px; font-size:0.8rem; color:#888; }
+  .sync-dot { width:8px; height:8px; border-radius:50%; background:#555; flex-shrink:0; }
+  .sync-dot.synced { background:#4ade80; }
+  .sync-dot.syncing { background:#facc15; }
+  .sync-dot.error { background:#f87171; }
+
   .month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
   .month-nav button { background: #1e1e2e; border: 1px solid #2e2e42; color: #ccc; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
   .month-nav button:hover { background: #2a2a3e; }
@@ -34,7 +40,7 @@
   .section-title { font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
   .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
   .dot.fixed { background: #818cf8; }
-  .dot.debt { background: #fb923c; }
+  .dot.debt  { background: #fb923c; }
   .dot.spend { background: #34d399; }
   .section-total { font-size: 0.85rem; color: #888; }
   .section-total span { color: #fff; font-weight: 600; }
@@ -46,20 +52,21 @@
   .progress-bar { height: 6px; background: #2a2a3e; border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
   .progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
   .fill-fixed { background: linear-gradient(90deg, #818cf8, #a78bfa); }
-  .fill-debt { background: linear-gradient(90deg, #fb923c, #fbbf24); }
+  .fill-debt  { background: linear-gradient(90deg, #fb923c, #fbbf24); }
   .fill-spend { background: linear-gradient(90deg, #34d399, #6ee7b7); }
 
   .item { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 10px; padding: 10px 12px; background: #13131e; border-radius: 10px; margin-bottom: 8px; }
   .item-name { font-size: 0.87rem; color: #ddd; }
-  .item-sub { font-size: 0.73rem; color: #666; margin-top: 2px; }
+  .item-sub  { font-size: 0.73rem; color: #888; margin-top: 3px; }
   .item-account { font-size: 0.72rem; background: #2a2a3e; color: #aaa; border-radius: 5px; padding: 2px 7px; white-space: nowrap; }
   .item-amount { font-size: 0.87rem; font-weight: 600; color: #fff; }
   .item-del { background: none; border: none; color: #555; cursor: pointer; font-size: 1rem; padding: 2px 6px; border-radius: 6px; }
   .item-del:hover { color: #f87171; }
 
-  .add-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .add-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
   .add-row input, .add-row select { background: #13131e; border: 1px solid #2e2e42; color: #fff; border-radius: 9px; padding: 8px 12px; font-size: 0.85rem; }
   .add-row input { flex: 1; min-width: 120px; }
+  .add-row input[type="date"] { flex: none; color-scheme: dark; }
   .add-row input::placeholder { color: #555; }
   .add-row input:focus, .add-row select:focus { outline: none; border-color: #7c3aed; }
   .add-row select { cursor: pointer; }
@@ -81,7 +88,7 @@
   .overview-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.87rem; flex-wrap: wrap; gap: 4px; }
 
   .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-  .filter-btn { padding: 4px 12px; border-radius: 20px; border: 1px solid #2a2a3e; background: #13131e; color: #888; cursor: pointer; font-size: 0.75rem; transition: all 0.15s; }
+  .filter-btn { padding: 4px 12px; border-radius: 20px; border: 1px solid #2a2a3e; background: #13131e; color: #888; cursor: pointer; font-size: 0.75rem; }
   .filter-btn.active { background: #7c3aed; border-color: #7c3aed; color: #fff; }
   .filter-btn:hover:not(.active) { color: #ccc; }
 
@@ -92,6 +99,11 @@
 <div class="app">
   <h1>&#127968; Household Budget</h1>
   <p class="subtitle">Monthly tracker &mdash; GBP &pound;</p>
+
+  <div class="sync-bar">
+    <div class="sync-dot" id="syncDot"></div>
+    <span id="syncMsg">Connecting...</span>
+  </div>
 
   <div class="month-nav">
     <button onclick="changeMonth(-1)">&#8249; Prev</button>
@@ -113,8 +125,6 @@
 
   <!-- SETUP TAB -->
   <div id="tab-setup">
-
-    <!-- MAASER / CHARITY -->
     <div class="maaser-section">
       <div class="section-header" style="margin-bottom:8px">
         <div class="section-title" style="color:#facc15">&#10024; Maaser / Charity</div>
@@ -124,7 +134,6 @@
       <div class="maaser-sub">Automatically deducted &mdash; 10% of your total monthly income goes here first.</div>
     </div>
 
-    <!-- INCOME -->
     <div class="income-section">
       <div class="section-header">
         <div class="section-title" style="color:#4ade80">&#128176; Monthly Income</div>
@@ -133,11 +142,10 @@
       <div class="add-row">
         <input id="incName" placeholder="e.g. Salary, Partner's income" />
         <input id="incAmt" placeholder="&pound; amount" style="max-width:110px" />
-        <button class="add-btn" onclick="addItem('income')">+ Add</button>
+        <button class="add-btn" onclick="addIncome()">+ Add</button>
       </div>
     </div>
 
-    <!-- FIXED EXPENSES -->
     <div class="section">
       <div class="section-header">
         <div class="section-title"><span class="dot fixed"></span> Fixed Expenses</div>
@@ -147,7 +155,7 @@
       <div id="fixedList"></div>
       <div class="add-row">
         <input id="fixName" placeholder="e.g. Mortgage, Council Tax, Utilities" />
-        <input id="fixAmt" placeholder="&pound; amount" style="max-width:100px" />
+        <input id="fixAmt" placeholder="&pound; amount" style="max-width:90px" />
         <select id="fixAccount" style="min-width:120px">
           <option value="">-- Account --</option>
           <option value="Intercater">Intercater</option>
@@ -159,11 +167,11 @@
           <option value="Barclaycard">Barclaycard</option>
           <option value="Cash">Cash</option>
         </select>
-        <button class="add-btn" onclick="addItem('fixed')">+ Add</button>
+        <input id="fixDue" type="date" style="max-width:145px" />
+        <button class="add-btn" onclick="addFixed()">+ Add</button>
       </div>
     </div>
 
-    <!-- DEBT REPAYMENTS -->
     <div class="section">
       <div class="section-header">
         <div class="section-title"><span class="dot debt"></span> Debt Repayments</div>
@@ -173,19 +181,18 @@
       <div id="debtList"></div>
       <div class="add-row">
         <input id="debtName" placeholder="e.g. Credit card, Car finance, Loan" />
-        <input id="debtAmt" placeholder="&pound; amount" style="max-width:100px" />
+        <input id="debtAmt" placeholder="&pound; amount" style="max-width:90px" />
         <select id="debtAccount" style="min-width:130px">
           <option value="">-- Leaves From --</option>
           <option value="Intercater">Intercater</option>
           <option value="HSBC">HSBC</option>
           <option value="Nationwide">Nationwide</option>
         </select>
-        <input id="debtDue" type="date" style="max-width:145px;color:#fff;background:#13131e;border:1px solid #2e2e42;border-radius:9px;padding:8px 12px;font-size:0.85rem" />
-        <button class="add-btn" onclick="addItem('debt')">+ Add</button>
+        <input id="debtDue" type="date" style="max-width:145px" />
+        <button class="add-btn" onclick="addDebt()">+ Add</button>
       </div>
     </div>
 
-    <!-- SPENDING BUDGET -->
     <div class="section">
       <div class="section-header">
         <div class="section-title"><span class="dot spend"></span> Spending Budget</div>
@@ -195,7 +202,7 @@
       <div id="spendList"></div>
       <div class="add-row">
         <input id="spendName" placeholder="e.g. Groceries, Eating out, Fuel" />
-        <input id="spendAmt" placeholder="&pound; budget" style="max-width:100px" />
+        <input id="spendAmt" placeholder="&pound; budget" style="max-width:90px" />
         <select id="spendAccount" style="min-width:120px">
           <option value="">-- Account --</option>
           <option value="Intercater">Intercater</option>
@@ -207,7 +214,7 @@
           <option value="Barclaycard">Barclaycard</option>
           <option value="Cash">Cash</option>
         </select>
-        <button class="add-btn" onclick="addItem('spend')">+ Add</button>
+        <button class="add-btn" onclick="addSpend()">+ Add</button>
       </div>
     </div>
   </div>
@@ -235,9 +242,7 @@
       </div>
     </div>
     <div class="section">
-      <div class="section-header">
-        <div class="section-title">&#128203; Transaction Log</div>
-      </div>
+      <div class="section-header"><div class="section-title">&#128203; Transaction Log</div></div>
       <div class="filter-bar" id="txFilterBar"></div>
       <div id="txLog"><div class="empty">No transactions logged yet this month.</div></div>
     </div>
@@ -261,33 +266,79 @@
 </div>
 
 <script>
+// ── Supabase config ────────────────────────────────────────────────────────────
+var SUPABASE_URL = 'https://ydxlimthxofvstxpsvzo.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_w7K7MjxAI5ykZSjTM7oDSg_1mgBcsgF';
+var TABLE = 'budget';
+var ROW_ID = 'main';
+
+function setSync(status, msg) {
+  var dot = document.getElementById('syncDot');
+  var txt = document.getElementById('syncMsg');
+  dot.className = 'sync-dot ' + status;
+  txt.textContent = msg;
+}
+
+async function loadFromSupabase() {
+  try {
+    setSync('syncing', 'Loading...');
+    var res = await fetch(SUPABASE_URL + '/rest/v1/' + TABLE + '?id=eq.' + ROW_ID + '&select=data', {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY
+      }
+    });
+    var rows = await res.json();
+    if (rows && rows.length && rows[0].data) {
+      state = rows[0].data;
+    }
+    setSync('synced', 'Synced \u2014 all devices share this data');
+    render();
+  } catch(e) {
+    setSync('error', 'Sync error \u2014 check connection');
+    render();
+  }
+}
+
+async function saveToSupabase() {
+  try {
+    setSync('syncing', 'Saving...');
+    await fetch(SUPABASE_URL + '/rest/v1/' + TABLE + '?id=eq.' + ROW_ID, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ data: state })
+    });
+    setSync('synced', 'Saved \u2014 all devices updated');
+  } catch(e) {
+    setSync('error', 'Save failed \u2014 check connection');
+  }
+}
+
+// ── State ──────────────────────────────────────────────────────────────────────
 var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 var now = new Date();
-var currentYear = now.getFullYear();
+var currentYear  = now.getFullYear();
 var currentMonth = now.getMonth();
 var activeTab = 'setup';
 var txAccountFilter = 'All';
+var state = {};
 
 function monthKey(y, m) { return y + '-' + String(m+1).padStart(2,'0'); }
 
-function loadState() {
-  try { var s = localStorage.getItem('hb_v3'); return s ? JSON.parse(s) : {}; } catch(e) { return {}; }
-}
-function saveState(s) {
-  try { localStorage.setItem('hb_v3', JSON.stringify(s)); } catch(e) {}
-}
-
-var state = loadState();
-
 function ensureMonth(key) {
   if (!state[key]) {
-    var pastKeys = Object.keys(state).filter(function(k){return k < key;}).sort();
+    var pastKeys = Object.keys(state).filter(function(k){ return k < key; }).sort();
     var prev = pastKeys.length ? state[pastKeys[pastKeys.length-1]] : null;
     state[key] = {
       income: prev ? JSON.parse(JSON.stringify(prev.income)) : [],
-      fixed: prev ? JSON.parse(JSON.stringify(prev.fixed)) : [],
-      debt: prev ? JSON.parse(JSON.stringify(prev.debt)) : [],
-      spend: prev ? JSON.parse(JSON.stringify(prev.spend)) : [],
+      fixed:  prev ? JSON.parse(JSON.stringify(prev.fixed))  : [],
+      debt:   prev ? JSON.parse(JSON.stringify(prev.debt))   : [],
+      spend:  prev ? JSON.parse(JSON.stringify(prev.spend))  : [],
       transactions: []
     };
   }
@@ -309,56 +360,84 @@ function changeMonth(d) {
 }
 
 function fmt(v) { return '\u00a3' + Number(v).toLocaleString('en-GB', {minimumFractionDigits:2, maximumFractionDigits:2}); }
-function sum(arr) { return arr.reduce(function(a,b){return a+(Number(b.amount)||0);},0); }
+function sum(arr) { return arr.reduce(function(a,b){ return a + (Number(b.amount)||0); }, 0); }
 function fmtDate(d) {
   if (!d) return '';
-  var parts = d.split('-');
-  var date = new Date(parts[0], parts[1]-1, parts[2]);
-  return date.toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'});
+  var p = d.split('-');
+  return new Date(p[0], p[1]-1, p[2]).toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'});
+}
+function val(id) { return document.getElementById(id).value; }
+function clearFields() {
+  for (var i = 0; i < arguments.length; i++) document.getElementById(arguments[i]).value = '';
 }
 
-function addItem(type) {
-  var nameId  = type === 'income' ? 'incName'  : type + 'Name';
-  var amtId   = type === 'income' ? 'incAmt'   : type + 'Amt';
-  var accId   = type === 'fixed'  ? 'fixAccount' : type === 'spend' ? 'spendAccount' : type === 'debt' ? 'debtAccount' : null;
-  var name    = document.getElementById(nameId).value.trim();
-  var amount  = parseFloat(document.getElementById(amtId).value.replace(/[\u00a3,]/g,''));
-  var account = accId ? document.getElementById(accId).value : '';
-  var due     = type === 'debt' ? document.getElementById('debtDue').value.trim() : '';
+// ── Add functions ──────────────────────────────────────────────────────────────
+function addIncome() {
+  var name   = val('incName').trim();
+  var amount = parseFloat(val('incAmt').replace(/[\u00a3,]/g,''));
   if (!name || isNaN(amount) || amount <= 0) return;
-  cur()[type].push({id: Date.now(), name: name, amount: amount, account: account, due: due});
-  document.getElementById(nameId).value = '';
-  document.getElementById(amtId).value  = '';
-  if (type === 'debt') { document.getElementById('debtDue').value = ''; document.getElementById('debtAccount').value = ''; }
-  saveState(state);
-  render();
+  cur().income.push({id: Date.now(), name: name, amount: amount});
+  clearFields('incName','incAmt');
+  saveToSupabase(); render();
 }
 
-function deleteItem(type, id) {
-  cur()[type] = cur()[type].filter(function(i){return i.id !== id;});
-  saveState(state);
-  render();
+function addFixed() {
+  var name    = val('fixName').trim();
+  var amount  = parseFloat(val('fixAmt').replace(/[\u00a3,]/g,''));
+  var account = val('fixAccount');
+  var due     = val('fixDue');
+  if (!name || isNaN(amount) || amount <= 0) return;
+  cur().fixed.push({id: Date.now(), name: name, amount: amount, account: account, due: due});
+  clearFields('fixName','fixAmt','fixDue');
+  document.getElementById('fixAccount').value = '';
+  saveToSupabase(); render();
+}
+
+function addDebt() {
+  var name    = val('debtName').trim();
+  var amount  = parseFloat(val('debtAmt').replace(/[\u00a3,]/g,''));
+  var account = val('debtAccount');
+  var due     = val('debtDue');
+  if (!name || isNaN(amount) || amount <= 0) return;
+  cur().debt.push({id: Date.now(), name: name, amount: amount, account: account, due: due});
+  clearFields('debtName','debtAmt','debtDue');
+  document.getElementById('debtAccount').value = '';
+  saveToSupabase(); render();
+}
+
+function addSpend() {
+  var name    = val('spendName').trim();
+  var amount  = parseFloat(val('spendAmt').replace(/[\u00a3,]/g,''));
+  var account = val('spendAccount');
+  if (!name || isNaN(amount) || amount <= 0) return;
+  cur().spend.push({id: Date.now(), name: name, amount: amount, account: account});
+  clearFields('spendName','spendAmt');
+  document.getElementById('spendAccount').value = '';
+  saveToSupabase(); render();
 }
 
 function addTransaction() {
-  var desc    = document.getElementById('txDesc').value.trim();
-  var cat     = document.getElementById('txCat').value;
-  var account = document.getElementById('txAccount').value;
-  var amount  = parseFloat(document.getElementById('txAmt').value.replace(/[\u00a3,]/g,''));
+  var desc    = val('txDesc').trim();
+  var cat     = val('txCat');
+  var account = val('txAccount');
+  var amount  = parseFloat(val('txAmt').replace(/[\u00a3,]/g,''));
   if (!desc || !cat || isNaN(amount) || amount <= 0) return;
   cur().transactions.push({id: Date.now(), desc: desc, cat: cat, account: account, amount: amount});
-  document.getElementById('txDesc').value = '';
-  document.getElementById('txAmt').value  = '';
-  saveState(state);
-  render();
+  clearFields('txDesc','txAmt');
+  saveToSupabase(); render();
+}
+
+function deleteItem(type, id) {
+  cur()[type] = cur()[type].filter(function(i){ return i.id !== id; });
+  saveToSupabase(); render();
 }
 
 function deleteTx(id) {
-  cur().transactions = cur().transactions.filter(function(t){return t.id !== id;});
-  saveState(state);
-  render();
+  cur().transactions = cur().transactions.filter(function(t){ return t.id !== id; });
+  saveToSupabase(); render();
 }
 
+// ── Tab switching ──────────────────────────────────────────────────────────────
 function switchTab(t) {
   activeTab = t;
   ['setup','spending','overview'].forEach(function(tab, i) {
@@ -368,46 +447,82 @@ function switchTab(t) {
   if (t === 'overview') renderOverview();
 }
 
+// ── Render functions ───────────────────────────────────────────────────────────
 function renderIncomeList() {
   var items = cur().income;
   var el = document.getElementById('incomeList');
   if (!items.length) { el.innerHTML = '<div class="empty">No income added yet.</div>'; return; }
   el.innerHTML = items.map(function(item) {
-    return '<div class="item" style="grid-template-columns:1fr auto auto"><div class="item-name">'+item.name+'</div><div class="item-amount" style="color:#4ade80">'+fmt(item.amount)+'</div><button class="item-del" onclick="deleteItem(\'income\','+item.id+')">&#10005;</button></div>';
+    return '<div class="item" style="grid-template-columns:1fr auto auto">'
+      + '<div class="item-name">'+item.name+'</div>'
+      + '<div class="item-amount" style="color:#4ade80">'+fmt(item.amount)+'</div>'
+      + '<button class="item-del" onclick="deleteItem(\'income\','+item.id+')">&#10005;</button>'
+      + '</div>';
   }).join('');
 }
 
-function renderList(type, containerId) {
-  var c     = cur();
-  var items = c[type];
-  var el    = document.getElementById(containerId);
+function renderFixed() {
+  var items = cur().fixed;
+  var el = document.getElementById('fixedList');
   if (!items.length) { el.innerHTML = '<div class="empty">None added yet.</div>'; return; }
+  el.innerHTML = items.map(function(item) {
+    var sub = (item.due || item.account)
+      ? '<div class="item-sub">'
+        + (item.due ? '<span style="color:#818cf8">Date: '+fmtDate(item.due)+'</span>' : '')
+        + (item.due && item.account ? ' &nbsp;&bull;&nbsp; ' : '')
+        + (item.account ? '<span style="color:#aaa">From: '+item.account+'</span>' : '')
+        + '</div>' : '';
+    return '<div class="item"><div><div class="item-name">'+item.name+'</div>'+sub+'</div>'
+      + (item.account ? '<span class="item-account">'+item.account+'</span>' : '<span></span>')
+      + '<div class="item-amount">'+fmt(item.amount)+'</div>'
+      + '<button class="item-del" onclick="deleteItem(\'fixed\','+item.id+')">&#10005;</button></div>';
+  }).join('');
+}
 
+function renderDebt() {
+  var items = cur().debt;
+  var el = document.getElementById('debtList');
+  if (!items.length) { el.innerHTML = '<div class="empty">None added yet.</div>'; return; }
+  el.innerHTML = items.map(function(item) {
+    var sub = (item.due || item.account)
+      ? '<div class="item-sub">'
+        + (item.due ? '<span style="color:#fb923c">Due: '+fmtDate(item.due)+'</span>' : '')
+        + (item.due && item.account ? ' &nbsp;&bull;&nbsp; ' : '')
+        + (item.account ? '<span style="color:#aaa">From: '+item.account+'</span>' : '')
+        + '</div>' : '';
+    return '<div class="item" style="grid-template-columns:1fr auto auto"><div><div class="item-name">'+item.name+'</div>'+sub+'</div>'
+      + '<div class="item-amount">'+fmt(item.amount)+'</div>'
+      + '<button class="item-del" onclick="deleteItem(\'debt\','+item.id+')">&#10005;</button></div>';
+  }).join('');
+}
+
+function renderSpend() {
+  var c = cur();
+  var items = c.spend;
+  var el = document.getElementById('spendList');
+  if (!items.length) { el.innerHTML = '<div class="empty">None added yet.</div>'; return; }
   var spentMap = {};
-  if (type === 'spend') {
-    c.transactions.forEach(function(tx){ spentMap[tx.cat] = (spentMap[tx.cat]||0) + tx.amount; });
-  }
-
+  c.transactions.forEach(function(tx){ spentMap[tx.cat] = (spentMap[tx.cat]||0) + tx.amount; });
   el.innerHTML = items.map(function(item) {
     var spent = spentMap[item.name] || 0;
-    var pct   = type === 'spend' ? Math.min(100, (spent/item.amount)*100) : 0;
+    var pct   = Math.min(100, (spent/item.amount)*100);
     var over  = spent > item.amount;
-    var spendInfo = type === 'spend'
-      ? '<div class="item-sub" style="color:'+(over?'#f87171':'#888')+'">Spent: '+fmt(spent)+' / '+fmt(item.amount)+'<span style="display:inline-block;width:50px;height:3px;background:#2a2a3e;border-radius:3px;vertical-align:middle;margin-left:6px"><span style="display:block;width:'+pct+'%;height:100%;background:'+(over?'#f87171':'#34d399')+';border-radius:3px"></span></span></div>'
-      : '';
-    var debtInfo = type === 'debt'
-      ? '<div class="item-sub">'+(item.due?'<span style="color:#fb923c">Due: '+fmtDate(item.due)+'</span>':'')+(item.due&&item.account?' &nbsp;&bull;&nbsp; ':'')+(item.account?'<span style="color:#aaa">From: '+item.account+'</span>':'')+'</div>'
-      : '';
-    var badge = (type !== 'debt' && item.account) ? '<span class="item-account">'+item.account+'</span>' : '<span></span>';
-    return '<div class="item"><div><div class="item-name">'+item.name+'</div>'+spendInfo+debtInfo+'</div>'+badge+'<div class="item-amount">'+fmt(item.amount)+'</div><button class="item-del" onclick="deleteItem(\''+type+'\','+item.id+')">&#10005;</button></div>';
+    var sub   = '<div class="item-sub" style="color:'+(over?'#f87171':'#888')+'">'
+      + 'Spent: '+fmt(spent)+' / '+fmt(item.amount)
+      + '<span style="display:inline-block;width:50px;height:3px;background:#2a2a3e;border-radius:3px;vertical-align:middle;margin-left:6px">'
+      + '<span style="display:block;width:'+pct+'%;height:100%;background:'+(over?'#f87171':'#34d399')+';border-radius:3px"></span></span></div>';
+    return '<div class="item"><div><div class="item-name">'+item.name+'</div>'+sub+'</div>'
+      + (item.account ? '<span class="item-account">'+item.account+'</span>' : '<span></span>')
+      + '<div class="item-amount">'+fmt(item.amount)+'</div>'
+      + '<button class="item-del" onclick="deleteItem(\'spend\','+item.id+')">&#10005;</button></div>';
   }).join('');
 }
 
 function populateCatSelect() {
   var sel  = document.getElementById('txCat');
-  var cats = cur().spend.map(function(s){return s.name;});
+  var cats = cur().spend.map(function(s){ return s.name; });
   sel.innerHTML = cats.length
-    ? cats.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('')
+    ? cats.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('')
     : '<option value="">Add spending categories in Setup first</option>';
 }
 
@@ -424,10 +539,7 @@ function renderTxFilterBar() {
   }).join('');
 }
 
-function setTxFilter(account) {
-  txAccountFilter = account;
-  render();
-}
+function setTxFilter(account) { txAccountFilter = account; render(); }
 
 function renderOverview() {
   var c = cur();
@@ -438,142 +550,109 @@ function renderOverview() {
   if (!c.spend.length) { el.innerHTML = '<div class="empty">Add spending categories in Setup first.</div>'; }
   else {
     el.innerHTML = c.spend.map(function(cat) {
-      var spent     = spentMap[cat.name] || 0;
-      var pct       = Math.min(100, (spent/cat.amount)*100);
-      var over      = spent > cat.amount;
-      var remaining = cat.amount - spent;
-      return '<div class="overview-cat"><div class="overview-row"><span style="font-weight:600">'+cat.name+'</span><span style="color:'+(over?'#f87171':'#34d399')+'">'+fmt(spent)+' / '+fmt(cat.amount)+'&nbsp;&nbsp;'+(over?'&#9888; Over by '+fmt(-remaining):'Left: '+fmt(remaining))+'</span></div><div class="progress-bar" style="height:8px"><div class="progress-fill fill-spend" style="width:'+pct+'%;'+(over?'background:#f87171':'')+'"></div></div></div>';
+      var spent=spentMap[cat.name]||0, pct=Math.min(100,(spent/cat.amount)*100), over=spent>cat.amount, rem=cat.amount-spent;
+      return '<div class="overview-cat"><div class="overview-row">'
+        + '<span style="font-weight:600">'+cat.name+'</span>'
+        + '<span style="color:'+(over?'#f87171':'#34d399')+'">'+fmt(spent)+' / '+fmt(cat.amount)+'&nbsp;&nbsp;'+(over?'&#9888; Over by '+fmt(-rem):'Left: '+fmt(rem))+'</span>'
+        + '</div><div class="progress-bar" style="height:8px"><div class="progress-fill fill-spend" style="width:'+pct+'%;'+(over?'background:#f87171':'')+'"></div></div></div>';
     }).join('');
   }
 
-  var accMap = {};
-  c.transactions.forEach(function(tx){
-    var a = tx.account || 'Unspecified';
-    accMap[a] = (accMap[a]||0) + tx.amount;
-  });
-  var fixedAccMap = {};
-  c.fixed.forEach(function(f){
-    var a = f.account || 'Unspecified';
-    fixedAccMap[a] = (fixedAccMap[a]||0) + f.amount;
-  });
-  var allAccounts = Object.keys(accMap).concat(Object.keys(fixedAccMap).filter(function(k){ return Object.keys(accMap).indexOf(k) === -1; }));
-  var abd = document.getElementById('accountBreakdown');
-  if (!allAccounts.length) { abd.innerHTML = '<div class="empty">No transactions logged yet.</div>'; }
+  var accMap={}, fixedAccMap={};
+  c.transactions.forEach(function(tx){ var a=tx.account||'Unspecified'; accMap[a]=(accMap[a]||0)+tx.amount; });
+  c.fixed.forEach(function(f){ var a=f.account||'Unspecified'; fixedAccMap[a]=(fixedAccMap[a]||0)+f.amount; });
+  var allAccounts=Object.keys(accMap).concat(Object.keys(fixedAccMap).filter(function(k){return !accMap[k];}));
+  var abd=document.getElementById('accountBreakdown');
+  if (!allAccounts.length) { abd.innerHTML='<div class="empty">No transactions logged yet.</div>'; }
   else {
-    abd.innerHTML = allAccounts.map(function(a) {
-      var txTotal  = accMap[a] || 0;
-      var fixTotal = fixedAccMap[a] || 0;
-      var total    = txTotal + fixTotal;
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#13131e;border-radius:10px;margin-bottom:8px"><div><div style="font-size:0.87rem;font-weight:600">'+a+'</div><div style="font-size:0.75rem;color:#888;margin-top:2px">'+(fixTotal>0?'Fixed: '+fmt(fixTotal):'')+(txTotal>0&&fixTotal>0?' | ':'')+(txTotal>0?'Spending: '+fmt(txTotal):'')+'</div></div><div style="font-weight:700;color:#f87171">'+fmt(total)+'</div></div>';
+    abd.innerHTML=allAccounts.map(function(a){
+      var tx=accMap[a]||0, fx=fixedAccMap[a]||0, tot=tx+fx;
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#13131e;border-radius:10px;margin-bottom:8px">'
+        +'<div><div style="font-size:0.87rem;font-weight:600">'+a+'</div>'
+        +'<div style="font-size:0.75rem;color:#888;margin-top:2px">'+(fx>0?'Fixed: '+fmt(fx):'')+(tx>0&&fx>0?' | ':'')+(tx>0?'Spending: '+fmt(tx):'')+'</div></div>'
+        +'<div style="font-weight:700;color:#f87171">'+fmt(tot)+'</div></div>';
     }).join('');
   }
-
   drawChart();
 }
 
 function drawChart() {
-  var canvas = document.getElementById('overviewChart');
-  var ctx    = canvas.getContext('2d');
-  var W      = canvas.offsetWidth || 700;
-  canvas.width = W; canvas.height = 180;
-  ctx.clearRect(0,0,W,180);
-  var c    = cur();
-  var maaser = sum(c.income) * 0.1;
-  var bars = [
-    {label:'Income',  value:sum(c.income), color:'#4ade80'},
-    {label:'Maaser',  value:maaser,         color:'#facc15'},
-    {label:'Fixed',   value:sum(c.fixed),   color:'#818cf8'},
-    {label:'Debts',   value:sum(c.debt),    color:'#fb923c'},
-    {label:'Budget',  value:sum(c.spend),   color:'#34d399'},
-    {label:'Spent',   value:c.transactions.reduce(function(a,t){return a+t.amount;},0), color:'#f87171'}
+  var canvas=document.getElementById('overviewChart'), ctx=canvas.getContext('2d'), W=canvas.offsetWidth||700;
+  canvas.width=W; canvas.height=180; ctx.clearRect(0,0,W,180);
+  var c=cur(), maaser=sum(c.income)*0.1;
+  var bars=[
+    {label:'Income',value:sum(c.income),color:'#4ade80'},
+    {label:'Maaser',value:maaser,color:'#facc15'},
+    {label:'Fixed',value:sum(c.fixed),color:'#818cf8'},
+    {label:'Debts',value:sum(c.debt),color:'#fb923c'},
+    {label:'Budget',value:sum(c.spend),color:'#34d399'},
+    {label:'Spent',value:c.transactions.reduce(function(a,t){return a+t.amount;},0),color:'#f87171'}
   ];
-  var maxVal = Math.max.apply(null, bars.map(function(b){return b.value;}));
-  if (maxVal === 0) maxVal = 1;
-  var gap  = Math.floor(W / bars.length);
-  var barW = Math.floor(gap * 0.45);
-  var maxH = 110;
-  ctx.font = '10px -apple-system, sans-serif';
-  ctx.textAlign = 'center';
-  bars.forEach(function(b, i) {
-    var x = gap * i + gap/2;
-    var h = (b.value / maxVal) * maxH;
-    var y = 130 - h;
-    ctx.globalAlpha = 0.2; ctx.fillStyle = b.color;
-    ctx.fillRect(x - barW/2, y, barW, h);
-    ctx.globalAlpha = 1; ctx.fillStyle = b.color;
-    ctx.fillRect(x - barW/2, y, barW, Math.min(h,4));
-    ctx.fillRect(x - barW/2, y+4, barW, Math.max(0,h-4));
-    ctx.fillStyle = '#ccc';
-    if (b.value > 0) ctx.fillText(fmt(b.value), x, Math.max(y-4,10));
-    ctx.fillStyle = '#888';
-    ctx.fillText(b.label, x, 148);
+  var maxVal=Math.max.apply(null,bars.map(function(b){return b.value;})); if(maxVal===0)maxVal=1;
+  var gap=Math.floor(W/bars.length),barW=Math.floor(gap*0.45),maxH=110;
+  ctx.font='10px -apple-system,sans-serif'; ctx.textAlign='center';
+  bars.forEach(function(b,i){
+    var x=gap*i+gap/2,h=(b.value/maxVal)*maxH,y=130-h;
+    ctx.globalAlpha=0.2; ctx.fillStyle=b.color; ctx.fillRect(x-barW/2,y,barW,h);
+    ctx.globalAlpha=1; ctx.fillStyle=b.color;
+    ctx.fillRect(x-barW/2,y,barW,Math.min(h,4)); ctx.fillRect(x-barW/2,y+4,barW,Math.max(0,h-4));
+    ctx.fillStyle='#ccc'; if(b.value>0)ctx.fillText(fmt(b.value),x,Math.max(y-4,10));
+    ctx.fillStyle='#888'; ctx.fillText(b.label,x,148);
   });
 }
 
 function render() {
-  var key = monthKey(currentYear, currentMonth);
-  ensureMonth(key);
-  var c = cur();
-
-  document.getElementById('monthLabel').textContent = MONTHS[currentMonth] + ' ' + currentYear;
-
-  var totalIncome = sum(c.income);
-  var maaser      = totalIncome * 0.1;
-  var totalFixed  = sum(c.fixed);
-  var totalDebt   = sum(c.debt);
-  var totalSpend  = sum(c.spend);
-  var totalOut    = maaser + totalFixed + totalDebt + totalSpend;
-  var remaining   = totalIncome - totalOut;
-
-  document.getElementById('maaserAmount').textContent = fmt(maaser);
-  document.getElementById('sumIncome').textContent    = fmt(totalIncome);
-  document.getElementById('sumOut').textContent       = fmt(totalOut);
-
-  var leftEl = document.getElementById('sumLeft');
-  leftEl.textContent  = fmt(remaining);
-  leftEl.style.color  = remaining < 0 ? '#f87171' : '#60a5fa';
-
-  function pct(v) { return totalIncome > 0 ? Math.min(100,(v/totalIncome)*100)+'%' : '0%'; }
-  document.getElementById('barFixed').style.width = pct(totalFixed);
-  document.getElementById('barDebt').style.width  = pct(totalDebt);
-  document.getElementById('barSpend').style.width = pct(totalSpend);
-
-  document.getElementById('totalFixed').textContent = fmt(totalFixed);
-  document.getElementById('totalDebt').textContent  = fmt(totalDebt);
-  document.getElementById('totalSpend').textContent = fmt(totalSpend);
-
-  renderIncomeList();
-  renderList('fixed','fixedList');
-  renderList('debt','debtList');
-  renderList('spend','spendList');
-
-  var txEl = document.getElementById('txLog');
-  var txs  = c.transactions.slice().reverse();
-  if (txAccountFilter !== 'All') {
-    txs = txs.filter(function(tx){ return tx.account === txAccountFilter; });
-  }
-  if (!txs.length) {
-    txEl.innerHTML = '<div class="empty">'+(txAccountFilter !== 'All' ? 'No transactions for '+txAccountFilter+' this month.' : 'No transactions logged yet this month.')+'</div>';
+  var key=monthKey(currentYear,currentMonth); ensureMonth(key); var c=cur();
+  document.getElementById('monthLabel').textContent=MONTHS[currentMonth]+' '+currentYear;
+  var ti=sum(c.income),maaser=ti*0.1,tf=sum(c.fixed),td=sum(c.debt),ts=sum(c.spend);
+  var totalOut=maaser+tf+td+ts, remaining=ti-totalOut;
+  document.getElementById('maaserAmount').textContent=fmt(maaser);
+  document.getElementById('sumIncome').textContent=fmt(ti);
+  document.getElementById('sumOut').textContent=fmt(totalOut);
+  var leftEl=document.getElementById('sumLeft');
+  leftEl.textContent=fmt(remaining); leftEl.style.color=remaining<0?'#f87171':'#60a5fa';
+  function pct(v){return ti>0?Math.min(100,(v/ti)*100)+'%':'0%';}
+  document.getElementById('barFixed').style.width=pct(tf);
+  document.getElementById('barDebt').style.width=pct(td);
+  document.getElementById('barSpend').style.width=pct(ts);
+  document.getElementById('totalFixed').textContent=fmt(tf);
+  document.getElementById('totalDebt').textContent=fmt(td);
+  document.getElementById('totalSpend').textContent=fmt(ts);
+  renderIncomeList(); renderFixed(); renderDebt(); renderSpend();
+  var txEl=document.getElementById('txLog');
+  var txs=c.transactions.slice().reverse();
+  if(txAccountFilter!=='All') txs=txs.filter(function(tx){return tx.account===txAccountFilter;});
+  if(!txs.length){
+    txEl.innerHTML='<div class="empty">'+(txAccountFilter!=='All'?'No transactions for '+txAccountFilter+' this month.':'No transactions logged yet this month.')+'</div>';
   } else {
-    txEl.innerHTML = txs.map(function(tx) {
-      return '<div class="tx"><div><div style="font-weight:500;font-size:0.87rem">'+tx.desc+'</div><div class="tx-meta"><span>'+tx.cat+'</span>'+(tx.account?'<span class="tx-account-badge">'+tx.account+'</span>':'')+'</div></div><div style="display:flex;align-items:center;gap:10px"><span style="font-weight:600;color:#f87171">'+fmt(tx.amount)+'</span><button class="tx-del" onclick="deleteTx('+tx.id+')">&#10005;</button></div></div>';
+    txEl.innerHTML=txs.map(function(tx){
+      return '<div class="tx"><div><div style="font-weight:500;font-size:0.87rem">'+tx.desc+'</div>'
+        +'<div class="tx-meta"><span>'+tx.cat+'</span>'+(tx.account?'<span class="tx-account-badge">'+tx.account+'</span>':'')+'</div></div>'
+        +'<div style="display:flex;align-items:center;gap:10px"><span style="font-weight:600;color:#f87171">'+fmt(tx.amount)+'</span>'
+        +'<button class="tx-del" onclick="deleteTx('+tx.id+')">&#10005;</button></div></div>';
     }).join('');
   }
-
-  populateCatSelect();
-  renderTxFilterBar();
-  if (activeTab === 'overview') renderOverview();
+  populateCatSelect(); renderTxFilterBar();
+  if(activeTab==='overview') renderOverview();
 }
 
-document.addEventListener('keydown', function(e) {
-  if (e.key !== 'Enter') return;
-  var id = document.activeElement ? document.activeElement.id : '';
-  var typeMap = {incName:'income',incAmt:'income',fixName:'fixed',fixAmt:'fixed',debtName:'debt',debtAmt:'debt',spendName:'spend',spendAmt:'spend'};
-  if (typeMap[id]) addItem(typeMap[id]);
-  if (id === 'txDesc' || id === 'txAmt') addTransaction();
-});
+// ── Poll for updates every 30 seconds so both devices stay in sync ─────────────
+setInterval(async function() {
+  try {
+    var res = await fetch(SUPABASE_URL+'/rest/v1/'+TABLE+'?id=eq.'+ROW_ID+'&select=data', {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer '+SUPABASE_KEY }
+    });
+    var rows = await res.json();
+    if (rows && rows.length && rows[0].data) {
+      state = rows[0].data;
+      render();
+      setSync('synced', 'Synced \u2014 all devices share this data');
+    }
+  } catch(e) {}
+}, 30000);
 
-render();
+// ── Init ───────────────────────────────────────────────────────────────────────
+loadFromSupabase();
 </script>
 </body>
 </html>
