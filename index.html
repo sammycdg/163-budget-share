@@ -174,6 +174,13 @@
       <div class="add-row">
         <input id="debtName" placeholder="e.g. Credit card, Car finance, Loan" />
         <input id="debtAmt" placeholder="&pound; amount" style="max-width:100px" />
+        <select id="debtAccount" style="min-width:130px">
+          <option value="">-- Leaves From --</option>
+          <option value="Intercater">Intercater</option>
+          <option value="HSBC">HSBC</option>
+          <option value="Nationwide">Nationwide</option>
+        </select>
+        <input id="debtDue" type="date" style="max-width:145px;color:#fff;background:#13131e;border:1px solid #2e2e42;border-radius:9px;padding:8px 12px;font-size:0.85rem" />
         <button class="add-btn" onclick="addItem('debt')">+ Add</button>
       </div>
     </div>
@@ -303,18 +310,26 @@ function changeMonth(d) {
 
 function fmt(v) { return '\u00a3' + Number(v).toLocaleString('en-GB', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function sum(arr) { return arr.reduce(function(a,b){return a+(Number(b.amount)||0);},0); }
+function fmtDate(d) {
+  if (!d) return '';
+  var parts = d.split('-');
+  var date = new Date(parts[0], parts[1]-1, parts[2]);
+  return date.toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'});
+}
 
 function addItem(type) {
   var nameId  = type === 'income' ? 'incName'  : type + 'Name';
   var amtId   = type === 'income' ? 'incAmt'   : type + 'Amt';
-  var accId   = type === 'fixed'  ? 'fixAccount' : type === 'spend' ? 'spendAccount' : null;
+  var accId   = type === 'fixed'  ? 'fixAccount' : type === 'spend' ? 'spendAccount' : type === 'debt' ? 'debtAccount' : null;
   var name    = document.getElementById(nameId).value.trim();
   var amount  = parseFloat(document.getElementById(amtId).value.replace(/[\u00a3,]/g,''));
   var account = accId ? document.getElementById(accId).value : '';
+  var due     = type === 'debt' ? document.getElementById('debtDue').value.trim() : '';
   if (!name || isNaN(amount) || amount <= 0) return;
-  cur()[type].push({id: Date.now(), name: name, amount: amount, account: account});
+  cur()[type].push({id: Date.now(), name: name, amount: amount, account: account, due: due});
   document.getElementById(nameId).value = '';
   document.getElementById(amtId).value  = '';
+  if (type === 'debt') { document.getElementById('debtDue').value = ''; document.getElementById('debtAccount').value = ''; }
   saveState(state);
   render();
 }
@@ -380,8 +395,11 @@ function renderList(type, containerId) {
     var spendInfo = type === 'spend'
       ? '<div class="item-sub" style="color:'+(over?'#f87171':'#888')+'">Spent: '+fmt(spent)+' / '+fmt(item.amount)+'<span style="display:inline-block;width:50px;height:3px;background:#2a2a3e;border-radius:3px;vertical-align:middle;margin-left:6px"><span style="display:block;width:'+pct+'%;height:100%;background:'+(over?'#f87171':'#34d399')+';border-radius:3px"></span></span></div>'
       : '';
-    var badge = item.account ? '<span class="item-account">'+item.account+'</span>' : '<span></span>';
-    return '<div class="item"><div><div class="item-name">'+item.name+'</div>'+spendInfo+'</div>'+badge+'<div class="item-amount">'+fmt(item.amount)+'</div><button class="item-del" onclick="deleteItem(\''+type+'\','+item.id+')">&#10005;</button></div>';
+    var debtInfo = type === 'debt'
+      ? '<div class="item-sub">'+(item.due?'<span style="color:#fb923c">Due: '+fmtDate(item.due)+'</span>':'')+(item.due&&item.account?' &nbsp;&bull;&nbsp; ':'')+(item.account?'<span style="color:#aaa">From: '+item.account+'</span>':'')+'</div>'
+      : '';
+    var badge = (type !== 'debt' && item.account) ? '<span class="item-account">'+item.account+'</span>' : '<span></span>';
+    return '<div class="item"><div><div class="item-name">'+item.name+'</div>'+spendInfo+debtInfo+'</div>'+badge+'<div class="item-amount">'+fmt(item.amount)+'</div><button class="item-del" onclick="deleteItem(\''+type+'\','+item.id+')">&#10005;</button></div>';
   }).join('');
 }
 
