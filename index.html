@@ -20,7 +20,7 @@
   .month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
   .month-nav button { background: #1e1e2e; border: 1px solid #2e2e42; color: #ccc; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
   .month-nav button:hover { background: #2a2a3e; }
-  .month-label { font-size: 1rem; font-weight: 600; color: #fff; min-width: 140px; text-align: center; }
+  .month-label { font-size: 1rem; font-weight: 600; color: #fff; min-width: 190px; text-align: center; }
 
   .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
   @media (max-width: 640px) { .summary { grid-template-columns: repeat(2, 1fr); } }
@@ -323,14 +323,36 @@ async function saveToSupabase() {
 
 // ── State ──────────────────────────────────────────────────────────────────────
 var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var CYCLE_START_DAY = 20; // billing cycle runs 20th -> 19th of next month
+
+// Given any date, find which cycle it belongs to. Returns {year, month} of the cycle's START month.
+function cycleForDate(d) {
+  var y = d.getFullYear(), m = d.getMonth();
+  if (d.getDate() < CYCLE_START_DAY) {
+    // Belongs to the cycle that started the previous month
+    m -= 1;
+    if (m < 0) { m = 11; y -= 1; }
+  }
+  return { year: y, month: m };
+}
+
 var now = new Date();
-var currentYear  = now.getFullYear();
-var currentMonth = now.getMonth();
+var startCycle = cycleForDate(now);
+var currentYear  = startCycle.year;
+var currentMonth = startCycle.month;
 var activeTab = 'setup';
 var txAccountFilter = 'All';
 var state = {};
 
 function monthKey(y, m) { return y + '-' + String(m+1).padStart(2,'0'); }
+
+function cycleLabel(y, m) {
+  var endM = m + 1, endY = y;
+  if (endM > 11) { endM = 0; endY += 1; }
+  var startStr = CYCLE_START_DAY + ' ' + MONTHS[m].slice(0,3);
+  var endStr = (CYCLE_START_DAY - 1) + ' ' + MONTHS[endM].slice(0,3) + ' ' + endY;
+  return startStr + ' \u2013 ' + endStr;
+}
 
 function ensureMonth(key) {
   if (!state[key]) {
@@ -418,15 +440,57 @@ function addSpend() {
   saveToSupabase(); render();
 }
 
+// ── Telegram notifications ───────────────────────────────────────────────────
+var TELEGRAM_BOT_TOKEN = '8707631393:AAGPhB83S2a0tC9-1tEz62Rd92R6VwmKz64';
+var TELEGRAM_CHAT_ID   = '1409896257';
+
+async function sendTelegramNotification(tx) {
+  try {
+    var c = cur();
+    var spentMap = {};
+    c.transactions.forEach(function(t){ spentMap[t.cat] = (spentMap[t.cat]||0) + t.amount; });
+
+    var catBudget = c.spend.find(function(s){ return s.name === tx.cat; });
+    var catLine = '';
+    if (catBudget) {
+      var spentInCat = spentMap[tx.cat] || 0;
+      var leftInCat = catBudget.amount - spentInCat;
+      catLine = '\n' + tx.cat + ': ' + fmt(Math.max(leftInCat,0)) + ' left of ' + fmt(catBudget.amount);
+      if (leftInCat < 0) catLine = '\n\u26a0\ufe0f ' + tx.cat + ': OVER by ' + fmt(-leftInCat) + ' (budget ' + fmt(catBudget.amount) + ')';
+    }
+
+    var ti = sum(c.income);
+    var maaser = ti * 0.1;
+    var tf = sum(c.fixed), td = sum(c.debt);
+    var actualSpent = c.transactions.reduce(function(a,t){ return a+t.amount; }, 0);
+    var remaining = ti - (maaser + tf + td + actualSpent);
+
+    var msg = '\ud83d\udcb3 *' + tx.desc + '* \u2014 ' + fmt(tx.amount)
+      + (tx.account ? ' (' + tx.account + ')' : '')
+      + catLine
+      + '\n\nTotal remaining this cycle: ' + fmt(remaining);
+
+    await fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' })
+    });
+  } catch(e) {
+    console.log('Telegram notification failed', e);
+  }
+}
+
 function addTransaction() {
   var desc    = val('txDesc').trim();
   var cat     = val('txCat');
   var account = val('txAccount');
   var amount  = parseFloat(val('txAmt').replace(/[\u00a3,]/g,''));
   if (!desc || !cat || isNaN(amount) || amount <= 0) return;
-  cur().transactions.push({id: Date.now(), desc: desc, cat: cat, account: account, amount: amount});
+  var tx = {id: Date.now(), desc: desc, cat: cat, account: account, amount: amount};
+  cur().transactions.push(tx);
   clearFields('txDesc','txAmt');
   saveToSupabase(); render();
+  sendTelegramNotification(tx);
 }
 
 function deleteItem(type, id) {
@@ -605,7 +669,7 @@ function drawChart() {
 
 function render() {
   var key=monthKey(currentYear,currentMonth); ensureMonth(key); var c=cur();
-  document.getElementById('monthLabel').textContent=MONTHS[currentMonth]+' '+currentYear;
+  document.getElementById('monthLabel').textContent=cycleLabel(currentYear, currentMonth);
   var ti=sum(c.income),maaser=ti*0.1,tf=sum(c.fixed),td=sum(c.debt),ts=sum(c.spend);
   var actualSpent = c.transactions.reduce(function(a,t){ return a + t.amount; }, 0);
   var totalAllocated = maaser+tf+td+ts;
