@@ -22,7 +22,8 @@
   .month-nav button:hover { background: #2a2a3e; }
   .month-label { font-size: 1rem; font-weight: 600; color: #fff; min-width: 140px; text-align: center; }
 
-  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+  @media (max-width: 640px) { .summary { grid-template-columns: repeat(2, 1fr); } }
   .sum-card { background: #1a1a26; border: 1px solid #2a2a3e; border-radius: 14px; padding: 16px 18px; }
   .sum-card .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin-bottom: 6px; }
   .sum-card .amount { font-size: 1.4rem; font-weight: 700; }
@@ -112,8 +113,10 @@
   </div>
 
   <div class="summary">
+  <div class="summary" style="grid-template-columns: repeat(4, 1fr);">
     <div class="sum-card income"><div class="label">Monthly Income</div><div class="amount" id="sumIncome">&pound;0</div></div>
-    <div class="sum-card outgoing"><div class="label">Total Outgoings</div><div class="amount" id="sumOut">&pound;0</div></div>
+    <div class="sum-card outgoing"><div class="label">Budget Allocated</div><div class="amount" id="sumOut">&pound;0</div></div>
+    <div class="sum-card outgoing"><div class="label">Actually Spent</div><div class="amount" id="sumActual" style="color:#fb923c">&pound;0</div></div>
     <div class="sum-card left"><div class="label">Remaining</div><div class="amount" id="sumLeft">&pound;0</div></div>
   </div>
 
@@ -605,10 +608,14 @@ function render() {
   var key=monthKey(currentYear,currentMonth); ensureMonth(key); var c=cur();
   document.getElementById('monthLabel').textContent=MONTHS[currentMonth]+' '+currentYear;
   var ti=sum(c.income),maaser=ti*0.1,tf=sum(c.fixed),td=sum(c.debt),ts=sum(c.spend);
-  var totalOut=maaser+tf+td+ts, remaining=ti-totalOut;
+  var actualSpent = c.transactions.reduce(function(a,t){ return a + t.amount; }, 0);
+  var totalAllocated = maaser+tf+td+ts;
+  var totalActualOut  = maaser+tf+td+actualSpent;
+  var remaining = ti - totalActualOut;
   document.getElementById('maaserAmount').textContent=fmt(maaser);
   document.getElementById('sumIncome').textContent=fmt(ti);
-  document.getElementById('sumOut').textContent=fmt(totalOut);
+  document.getElementById('sumOut').textContent=fmt(totalAllocated);
+  document.getElementById('sumActual').textContent=fmt(totalActualOut);
   var leftEl=document.getElementById('sumLeft');
   leftEl.textContent=fmt(remaining); leftEl.style.color=remaining<0?'#f87171':'#60a5fa';
   function pct(v){return ti>0?Math.min(100,(v/ti)*100)+'%':'0%';}
